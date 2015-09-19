@@ -1,0 +1,124 @@
+<!DOCTYPE HTML>
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+        <title>ChinaMap</title>
+        <style>
+            *{
+                margin: 0;
+                padding: 0;
+                border: 0;
+            }
+
+            html, body{
+                width: 100%;
+                height: 100%;
+            }
+
+            ::-webkit-scrollbar { 
+               display: none; 
+            }
+
+            #map{
+                width: 100%;
+                height: 100%;
+                overflow: auto;
+            }
+        </style>
+    </head>
+
+    <body>
+        <div id="map"></div>
+        <script type="text/javascript" src="raphael.js"></script>
+        <script type="text/javascript" src="MapData.js"></script>
+        <script type="text/javascript">
+            window.onload = function(){
+                var tmpCity, dist, moved, svgW = 560, svgH = 480, zm = 1;
+                var map = document.getElementById('map');
+                var R = Raphael("map", svgW, svgH);
+
+                Map.render(R);
+                map.scrollLeft = (svgW-map.offsetWidth)/2;
+
+                // render citys' color and name text
+                for(var state in Map.path){
+                    Map.path[state]['path'].color = Raphael.getColor(0.9);
+
+                    (function (st, state) {
+                        var pos = Map.getPathCenter(st, state, zm);
+                        Map.path[state]['text'] = R.text(pos.xx, pos.yy, Map.path[state]['name']).attr(Map.textAttr);
+
+                        st[0].addEventListener('click', function(){clickCity(state)});
+                        Map.path[state]['text'][0].addEventListener('click', function(){clickCity(state)});
+                    })(Map.path[state]['path'], state);
+                }
+
+                map.addEventListener('touchstart', function(e) {
+                    if(e.touches.length === 2){
+                        moved = false;
+                        dist = distance(e);
+                    }
+                });
+
+                map.addEventListener('touchmove', function(e) {
+                    if(e.touches.length === 2){
+                        if(moved) return false;
+
+                        var distMove = distance(e);
+                        var diff = distMove - dist;
+                        if(diff){
+                            scale(diff, e);
+                        }
+                    }
+                });
+
+                // select city first time
+                clickCity('sichuan');
+
+                function clickCity (state) {
+                    !!tmpCity && Map.path[tmpCity]['path'].attr('fill', tmpCityColor);
+
+                    tmpCity = state;
+                    tmpCityColor = Map.path[state]['path'].attr('fill');
+                    Map.path[state]['path'].animate({'fill': '#d8df00'}, 250);
+                    locate(Map.path[state]['path'], state);
+
+                    return false;
+                }
+
+                function locate (st, state) {
+                    var pos, trs;
+
+                    pos = Map.getPathCenter(st, state, zm);
+                    trs = 't'+(pos.xx-Map.locateIcon.width/2*zm)+','+(pos.yy-Map.locateIcon.height*zm)+"s"+zm+','+zm+",0,0";
+                    Map.locateIcon.animate({"transform":trs}, 150).toFront();
+                }
+
+                function distance (e) {
+                    return Math.sqrt((e.touches[0].pageX-e.touches[1].pageX) * (e.touches[0].pageX-e.touches[1].pageX) + (e.touches[0].pageY-e.touches[1].pageY) * (e.touches[0].pageY-e.touches[1].pageY));
+                }
+
+                function scale (diff, ev) {
+                    diff>0 ? zm<2&&(zm+=0.25) : zm>1&&(zm-=0.25);
+
+                    var touchX = (ev.touches[0].pageX + ev.touches[1].pageX)/2;
+                    var touchY = (ev.touches[0].pageY + ev.touches[1].pageY)/2;
+                    var trs = 's'+zm+','+zm+', 0, 0';
+
+                    for (var state in Map.path) {
+                        Map.path[state]['path'].transform(trs);
+                        Map.path[state]['text'].transform(trs);
+                    }
+
+                    R.setSize(svgW*zm, svgH*zm);
+                    map.scrollLeft = (touchX+map.scrollLeft)*zm - touchX;
+                    map.scrollTop = (touchY+map.scrollTop)*zm - touchY;
+                    moved = true;
+
+                    !!tmpCity && locate(Map.path[tmpCity]['path'], tmpCity);
+                }
+            };
+        </script>
+    </body>
+</html>
